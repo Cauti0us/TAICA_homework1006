@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucky 777 拉霸機</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg1: #1a0533;
+    --bg2: #000000;
+    --frame: #c0392b;
+    --gold: #f1c40f;
+    --reel-bg: #ffffff;
+    --win: #2ecc71;
+    --lose: #bdc3c7;
+    --cell: 96px;
+    --symbol: 64px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    background: radial-gradient(circle at top, var(--bg1), var(--bg2) 75%) fixed;
+    color: #fff;
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .pixel { font-family: "Press Start 2P", monospace; }
+
+  .machine {
+    width: 100%;
+    max-width: 480px;
+    background: linear-gradient(180deg, #e74c3c, var(--frame) 40%, #922b21);
+    border: 6px solid var(--gold);
+    border-radius: 24px;
+    padding: 20px 16px;
+    box-shadow: 0 0 0 4px #7d2018, 0 12px 0 #5b1510, 0 20px 40px rgba(0,0,0,.7), 0 0 60px rgba(241,196,15,.25);
+  }
+
+  h1 {
+    margin: 0 0 16px;
+    text-align: center;
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--gold);
+    text-shadow: 0 0 6px var(--gold), 0 0 16px #ff9f1a, 0 3px 0 #7d2018;
+    animation: neon 2s ease-in-out infinite;
+  }
+  @keyframes neon { 50% { opacity: .75; text-shadow: 0 0 2px var(--gold), 0 3px 0 #7d2018; } }
+  h1.rainbow { animation: rainbow 0.6s linear infinite; }
+  @keyframes rainbow {
+    0% { color: #ff4757; } 20% { color: #ffa502; } 40% { color: #f1c40f; }
+    60% { color: #2ed573; } 80% { color: #1e90ff; } 100% { color: #a55eea; }
+  }
+
+  .info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,.35);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    font-size: 15px;
+  }
+  .coins-num { font-size: 14px; color: var(--gold); }
+  .bet { display: flex; align-items: center; gap: 6px; }
+  .bet button {
+    width: 34px; height: 34px;
+    border: none; border-radius: 50%;
+    background: var(--gold); color: #7d2018;
+    font-size: 20px; font-weight: bold; cursor: pointer;
+    box-shadow: 0 3px 0 #b7950b;
+  }
+  .bet button:active:not(:disabled) { transform: translateY(3px); box-shadow: none; }
+  .bet button:disabled { opacity: .4; cursor: not-allowed; }
+  .bet-num { min-width: 36px; text-align: center; font-size: 13px; color: var(--gold); }
+
+  .stage { display: flex; align-items: center; gap: 10px; }
+  .reels {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    background: #2c0a0a;
+    padding: 10px;
+    border-radius: 14px;
+    border: 3px solid var(--gold);
+  }
+  .reel {
+    flex: 1;
+    height: var(--cell);
+    overflow: hidden;
+    background: var(--reel-bg);
+    border-radius: 10px;
+    box-shadow: inset 0 10px 14px rgba(0,0,0,.45), inset 0 -10px 14px rgba(0,0,0,.45);
+    position: relative;
+  }
+  .strip { will-change: transform; }
+  .cell {
+    height: var(--cell);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--symbol);
+    line-height: 1;
+    user-select: none;
+  }
+  .reel.flash { animation: flash .35s ease-in-out 3; }
+  @keyframes flash {
+    50% { box-shadow: 0 0 0 4px var(--gold), 0 0 24px 6px var(--gold), inset 0 0 12px rgba(241,196,15,.6); }
+  }
+
+  .lever {
+    width: 34px; height: calc(var(--cell) + 50px);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    background: none; border: none; padding: 0;
+  }
+  .lever .base {
+    position: absolute; bottom: 0; left: 4px;
+    width: 26px; height: 26px;
+    background: #555; border-radius: 6px;
+    box-shadow: inset 0 -4px 0 #333;
+  }
+  .lever .arm {
+    position: absolute; left: 13px; bottom: 16px;
+    width: 8px; height: calc(100% - 30px);
+    background: linear-gradient(90deg, #bbb, #eee, #999);
+    border-radius: 4px;
+    transform-origin: bottom center;
+  }
+  .lever .ball {
+    position: absolute; top: -14px; left: -10px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ff7675, #c0392b 60%, #7d2018);
+    box-shadow: 0 3px 6px rgba(0,0,0,.5);
+  }
+  .lever.pulled .arm { animation: pull .4s ease-in-out; }
+  @keyframes pull { 50% { transform: scaleY(-.35); } }
+  .lever:disabled { cursor: not-allowed; }
+
+  .message {
+    min-height: 54px;
+    margin: 16px 0 12px;
+    padding: 10px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    background: rgba(0,0,0,.4);
+    border-radius: 10px;
+    color: var(--lose);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .message.win { color: var(--win); text-shadow: 0 0 8px rgba(46,204,113,.6); }
+  .message.big { color: var(--gold); font-size: 20px; text-shadow: 0 0 10px var(--gold); }
+  .message.warn { color: #ffb3a7; }
+
+  .spin-btn {
+    display: block;
+    width: 100%;
+    padding: 18px;
+    font-size: 22px;
+    color: #fff;
+    background: linear-gradient(180deg, #ff6b6b, #e3342f);
+    border: 4px solid var(--gold);
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 8px 0 #7d2018, 0 12px 20px rgba(0,0,0,.5);
+    transition: transform .08s, box-shadow .08s;
+  }
+  .spin-btn:active:not(:disabled) { transform: translateY(8px); box-shadow: 0 0 0 #7d2018, 0 4px 8px rgba(0,0,0,.5); }
+  .spin-btn:disabled { filter: grayscale(.6) brightness(.8); cursor: not-allowed; }
+  .hint { text-align: center; font-size: 12px; opacity: .75; margin-top: 14px; }
+
+  .panel {
+    margin-top: 16px;
+    background: rgba(0,0,0,.4);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .panel-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .stats span b { color: var(--gold); }
+  .history { list-style: none; margin: 4px 0 0; padding: 0; }
+  .history li { display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,.15); }
+  .history .plus { color: var(--win); }
+  .history .minus { color: var(--lose); }
+  .mute-btn {
+    background: none; border: 2px solid var(--gold); border-radius: 8px;
+    color: #fff; font-size: 18px; padding: 2px 8px; cursor: pointer; flex-shrink: 0;
+  }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--gold); }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  td { padding: 3px 6px; border-bottom: 1px solid rgba(255,255,255,.12); }
+  td:last-child { text-align: right; color: var(--gold); }
+
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.8);
+    display: none; align-items: center; justify-content: center;
+    z-index: 20; padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .dialog {
+    background: var(--frame);
+    border: 5px solid var(--gold);
+    border-radius: 18px;
+    padding: 28px 24px;
+    text-align: center;
+    max-width: 340px;
+  }
+  .dialog h2 { margin: 0 0 12px; font-size: 18px; color: var(--gold); line-height: 1.5; }
+  .dialog p { margin: 0 0 20px; }
+  .dialog button {
+    padding: 12px 24px; font-size: 18px; font-weight: bold;
+    background: var(--gold); color: #7d2018; border: none; border-radius: 999px; cursor: pointer;
+  }
+
+  .confetti {
+    position: fixed; top: -20px;
+    width: 10px; height: 16px;
+    z-index: 10; pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  @media (max-width: 480px) {
+    :root { --cell: 72px; --symbol: 48px; }
+    h1 { font-size: 16px; }
+    .info { font-size: 13px; flex-wrap: wrap; }
+    .spin-btn { font-size: 18px; }
+    .machine { padding: 16px 10px; }
+  }
+</style>
+</head>
+<body>
+  <main class="machine">
+    <h1 class="pixel" id="title">🎰 LUCKY 777 🎰</h1>
+
+    <div class="info">
+      <div>代幣：💰 <span class="coins-num pixel" id="coins">100</span></div>
+      <div class="bet">
+        下注：
+        <button id="betDown" aria-label="減少下注">－</button>
+        <span class="bet-num pixel" id="bet">1</span>
+        <button id="betUp" aria-label="增加下注">＋</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="reels">
+        <div class="reel"><div class="strip"></div></div>
+        <div class="reel"><div class="strip"></div></div>
+        <div class="reel"><div class="strip"></div></div>
+      </div>
+      <button class="lever" id="lever" aria-label="拉桿">
+        <div class="arm"><div class="ball"></div></div>
+        <div class="base"></div>
+      </button>
+    </div>
+
+    <div class="message" id="message">按下 SPIN 開始遊戲！</div>
+
+    <button class="spin-btn pixel" id="spinBtn">SPIN</button>
+    <div class="hint">也可以點拉桿或按「空白鍵」轉動</div>
+
+    <section class="panel">
+      <div class="panel-row">
+        <div class="stats">
+          📊 轉動 <span><b id="statSpins">0</b></span> 次｜
+          最高 <span><b id="statMax">100</b></span>｜
+          最大獎 <span><b id="statBig">0</b></span>
+        </div>
+        <button class="mute-btn" id="muteBtn" aria-label="靜音切換">🔊</button>
+      </div>
+
+      <div style="margin-top:8px">📜 最近紀錄：</div>
+      <ul class="history" id="history"><li style="opacity:.6">尚無紀錄</li></ul>
+
+      <details>
+        <summary>📖 賠率表（獎金 = 下注 × 倍數）</summary>
+        <table id="payTable"></table>
+      </details>
+    </section>
+  </main>
+
+  <div class="overlay" id="gameOver">
+    <div class="dialog">
+      <h2 class="pixel">GAME OVER</h2>
+      <p>代幣用完了 😢<br>要再挑戰一次嗎？</p>
+      <button id="restartBtn">重新開始</button>
+    </div>
+  </div>
+
+<script>
+  // ===== 資料 =====
+  const SYMBOLS = [
+    { icon: '🍒', name: '櫻桃', weight: 30, pay: 5 },
+    { icon: '🍋', name: '檸檬', weight: 25, pay: 8 },
+    { icon: '🍊', name: '橘子', weight: 20, pay: 10 },
+    { icon: '🍇', name: '葡萄', weight: 12, pay: 15 },
+    { icon: '🔔', name: '鈴鐺', weight: 8,  pay: 25 },
+    { icon: '⭐', name: '星星', weight: 4,  pay: 50 },
+    { icon: '7️⃣', name: '幸運七', weight: 1, pay: 100 },
+  ];
+  const BET_OPTIONS = [1, 5, 10, 20, 50];
+  const START_COINS = 100;
+  const STOP_TIMES = [1000, 1400, 1800];
+  const SAVE_KEY = 'lucky777-save';
+  const TOTAL_WEIGHT = SYMBOLS.reduce((s, x) => s + x.weight, 0);
+
+  let state = {
+    coins: START_COINS,
+    betIndex: 0,
+    spinning: false,
+    stats: { spins: 0, maxCoins: START_COINS, biggestWin: 0 },
+    history: [],
+    muted: false,
+  };
+  let shownCoins = START_COINS;
+
+  // ===== DOM =====
+  const $ = id => document.getElementById(id);
+  const reels = [...document.querySelectorAll('.reel')];
+  const strips = reels.map(r => r.querySelector('.strip'));
+  const spinBtn = $('spinBtn'), lever = $('lever');
+  const betUp = $('betUp'), betDown = $('betDown');
+
+  // ===== 隨機 =====
+  function randomSymbol() {
+    let r = Math.random() * TOTAL_WEIGHT;
+    for (const s of SYMBOLS) {
+      if (r < s.weight) return s;
+      r -= s.weight;
+    }
+    return SYMBOLS[0];
+  }
+
+  // ===== 轉輪 =====
+  function setStrip(strip, icons) {
+    strip.innerHTML = icons.map(i => `<div class="cell">${i}</div>`).join('');
+  }
+
+  function animateReel(i, symbol, duration) {
+    return new Promise(resolve => {
+      const strip = strips[i];
+      const cellH = reels[i].clientHeight;
+      const current = strip.lastElementChild ? strip.lastElementChild.textContent : symbol.icon;
+      const filler = Array.from({ length: 18 + i * 6 }, () => randomSymbol().icon);
+      const icons = [current, ...filler, symbol.icon];
+      setStrip(strip, icons);
+      strip.style.transition = 'none';
+      strip.style.transform = 'translateY(0)';
+      strip.offsetHeight; // 強制重排，讓動畫從頭開始
+      strip.style.transition = `transform ${duration}ms cubic-bezier(.15,.7,.25,1)`;
+      strip.style.transform = `translateY(${-(icons.length - 1) * cellH}px)`;
+      setTimeout(() => {
+        strip.style.transition = 'none';
+        strip.style.transform = 'translateY(0)';
+        setStrip(strip, [symbol.icon]);
+        playSound('stop');
+        resolve();
+      }, duration);
+    });
+  }
+
+  // ===== 判斷中獎 =====
+  function calcPayout(results, bet) {
+    const [a, b, c] = results.map(s => s.icon);
+    if (a === b && b === c) {
+      const sym = results[0];
+      const win = bet * sym.pay;
+      const jackpot = sym.icon === '7️⃣';
+      return {
+        win, jackpot, big: sym.pay >= 25,
+        text: jackpot ? `💥 JACKPOT！三個 7！贏得 ${win} 枚！`
+                      : `🎉 三個${sym.name}！贏得 ${win} 枚！`,
+      };
+    }
+    if (a === b || b === c || a === c) {
+      return { win: bet * 2, text: `✨ 兩個相同！贏得 ${bet * 2} 枚！` };
+    }
+    if (results.some(s => s.icon === '🍒')) {
+      return { win: bet, text: `🍒 有櫻桃！退回本金 ${bet} 枚` };
+    }
+    return { win: 0, text: '再接再厲！💪' };
+  }
+
+  // ===== 主流程 =====
+  async function spin() {
+    if (state.spinning) return;
+    const bet = BET_OPTIONS[state.betIndex];
+    if (state.coins < bet) {
+      showMessage(`⚠️ 代幣不足！請降低下注（目前 ${state.coins} 枚）`, 'warn');
+      return;
+    }
+
+    state.spinning = true;
+    state.coins -= bet;
+    state.stats.spins++;
+    updateUI();
+    lever.classList.remove('pulled');
+    void lever.offsetWidth;
+    lever.classList.add('pulled');
+    $('title').classList.remove('rainbow');
+    reels.forEach(r => r.classList.remove('flash'));
+    showMessage('轉動中…', '');
+    playSound('spin');
+
+    const results = [randomSymbol(), randomSymbol(), randomSymbol()];
+    await Promise.all(results.map((s, i) => animateReel(i, s, STOP_TIMES[i])));
+
+    const result = calcPayout(results, bet);
+    state.coins += result.win;
+    state.stats.maxCoins = Math.max(state.stats.maxCoins, state.coins);
+    state.stats.biggestWin = Math.max(state.stats.biggestWin, result.win);
+    state.history.unshift({ icons: results.map(s => s.icon).join(''), net: result.win - bet });
+    state.history = state.history.slice(0, 5);
+
+    if (result.win > 0) {
+      showMessage(result.text, result.big || result.jackpot ? 'big' : 'win');
+      reels.forEach(r => r.classList.add('flash'));
+      playSound(result.jackpot ? 'jackpot' : 'win');
+    } else {
+      showMessage(result.text, '');
+    }
+    if (result.jackpot) {
+      $('title').classList.add('rainbow');
+      showConfetti();
+    }
+
+    state.spinning = false;
+    saveGame();
+    updateUI();
+
+    if (state.coins <= 0) {
+      setTimeout(() => $('gameOver').classList.add('show'), 600);
+    }
+  }
+
+  function resetGame() {
+    state.coins = START_COINS;
+    state.betIndex = 0;
+    state.history = [];
+    $('gameOver').classList.remove('show');
+    $('title').classList.remove('rainbow');
+    showMessage('新的開始！祝你好運 🍀', '');
+    saveGame();
+    updateUI();
+  }
+
+  // ===== 畫面 =====
+  function showMessage(text, cls) {
+    const m = $('message');
+    m.textContent = text;
+    m.className = 'message' + (cls ? ' ' + cls : '');
+  }
+
+  function animateCoins(target) {
+    const start = shownCoins;
+    const diff = target - start;
+    if (diff === 0) return;
+    const t0 = performance.now();
+    const dur = Math.min(800, 200 + Math.abs(diff) * 4);
+    function step(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      shownCoins = Math.round(start + diff * p);
+      $('coins').textContent = shownCoins;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function updateUI() {
+    animateCoins(state.coins);
+    $('bet').textContent = BET_OPTIONS[state.betIndex];
+    spinBtn.disabled = state.spinning;
+    lever.disabled = state.spinning;
+    betDown.disabled = state.spinning || state.betIndex === 0;
+    betUp.disabled = state.spinning || state.betIndex === BET_OPTIONS.length - 1;
+    $('statSpins').textContent = state.stats.spins;
+    $('statMax').textContent = state.stats.maxCoins;
+    $('statBig').textContent = state.stats.biggestWin;
+    $('muteBtn').textContent = state.muted ? '🔇' : '🔊';
+
+    $('history').innerHTML = state.history.length
+      ? state.history.map(h => `<li><span>${h.icons}</span>
+          <span class="${h.net > 0 ? 'plus' : 'minus'}">${h.net > 0 ? '+' : ''}${h.net}</span></li>`).join('')
+      : '<li style="opacity:.6">尚無紀錄</li>';
+  }
+
+  function buildPayTable() {
+    const rows = [...SYMBOLS].reverse().map(s =>
+      `<tr><td>${s.icon} ${s.icon} ${s.icon}</td><td>× ${s.pay}${s.pay === 100 ? '（JACKPOT）' : ''}</td></tr>`);
+    rows.push('<tr><td>任意兩個相同</td><td>× 2</td></tr>');
+    rows.push('<tr><td>至少一個 🍒</td><td>× 1（退本金）</td></tr>');
+    rows.push('<tr><td>其他</td><td>0</td></tr>');
+    $('payTable').innerHTML = rows.join('');
+  }
+
+  // ===== 特效 =====
+  function showConfetti() {
+    const colors = ['#f1c40f', '#e74c3c', '#2ecc71', '#3498db', '#9b59b6', '#ff9f1a'];
+    for (let i = 0; i < 120; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[i % colors.length];
+      c.style.animationDuration = 2 + Math.random() * 1.5 + 's';
+      c.style.animationDelay = Math.random() * 0.8 + 's';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 3500);
+    }
+  }
+
+  // ===== 音效（Web Audio API） =====
+  let audioCtx = null;
+  function tone(freq, start, dur, type = 'square', vol = 0.08) {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + start + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(audioCtx.currentTime + start);
+    o.stop(audioCtx.currentTime + start + dur);
+  }
+  function playSound(type) {
+    if (state.muted) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (type === 'spin') {
+        for (let i = 0; i < 16; i++) tone(300 + (i % 4) * 60, i * 0.1, 0.05, 'square', 0.03);
+      } else if (type === 'stop') {
+        tone(180, 0, 0.08, 'triangle', 0.15);
+      } else if (type === 'win') {
+        [523, 659, 784].forEach((f, i) => tone(f, i * 0.12, 0.2));
+      } else if (type === 'jackpot') {
+        [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, i * 0.13, 0.25));
+      }
+    } catch (e) { /* 不支援音效時忽略 */ }
+  }
+
+  // ===== 存檔 =====
+  function saveGame() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        coins: state.coins, betIndex: state.betIndex,
+        stats: state.stats, history: state.history, muted: state.muted,
+      }));
+    } catch (e) { /* 無法存檔時忽略 */ }
+  }
+  function loadGame() {
+    try {
+      const data = JSON.parse(localStorage.getItem(SAVE_KEY));
+      if (data && typeof data.coins === 'number') {
+        Object.assign(state, data);
+        state.spinning = false;
+      }
+    } catch (e) { /* 讀檔失敗就用預設值 */ }
+    shownCoins = state.coins;
+    $('coins').textContent = state.coins;
+  }
+
+  // ===== 事件 =====
+  spinBtn.addEventListener('click', spin);
+  lever.addEventListener('click', spin);
+  betUp.addEventListener('click', () => {
+    if (state.betIndex < BET_OPTIONS.length - 1) { state.betIndex++; saveGame(); updateUI(); }
+  });
+  betDown.addEventListener('click', () => {
+    if (state.betIndex > 0) { state.betIndex--; saveGame(); updateUI(); }
+  });
+  $('muteBtn').addEventListener('click', () => {
+    state.muted = !state.muted; saveGame(); updateUI();
+  });
+  $('restartBtn').addEventListener('click', resetGame);
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if ($('gameOver').classList.contains('show')) return;
+      spin();
+    }
+  });
+
+  // ===== 初始化 =====
+  loadGame();
+  strips.forEach(s => setStrip(s, [randomSymbol().icon]));
+  buildPayTable();
+  updateUI();
+  if (state.coins <= 0) $('gameOver').classList.add('show');
+</script>
+</body>
+</html>
